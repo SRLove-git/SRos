@@ -39,7 +39,10 @@ void vga_putchar_at(char c, u8 color, int row, int col)
 }
 
 void vga_putc(char c){
-    if(c == '\n'){
+    if(c== '\b'){
+        cursor_col--;
+        vga_putchar_at(' ',WHITE_ON_BLACK,cursor_row,cursor_col);
+    }else if(c == '\n'){
         cursor_col=0;
         cursor_row++;
     }else{
@@ -55,6 +58,7 @@ void vga_putc(char c){
             cursor_row++;
         }
     }
+    vga_set_cursor(cursor_row, cursor_col);
     
 }
 void vga_puts(const char *s){
@@ -130,4 +134,3 @@ void panic(const char *msg) {
     vga_puts(msg);
     while(1);
 }
-
