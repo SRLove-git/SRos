@@ -1,5 +1,6 @@
 #include "serial.h"
 #include "io.h"
+#include "stdarg.h"
 
 /* 串口寄存器偏移（相对于基址） */
 #define REG_DATA      0
@@ -66,4 +67,39 @@ void serial_puthex(u16 port, u32 val)
     serial_puts(port, "0x");
     for (i = 28; i >= 0; i -= 4)
         serial_putc(port, hex[(val >> i) & 0xF]);
+}
+
+void serial_printf(u16 port, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    while (*fmt) {
+        if (*fmt == '%') {
+            fmt++;
+            switch (*fmt) {
+                case 's':
+                    serial_puts(port, va_arg(args, const char *));
+                    break;
+                case 'd':
+                case 'x':
+                    serial_puthex(port, va_arg(args, u32));
+                    break;
+                case 'c':
+                    serial_putc(port, (char)va_arg(args, int));
+                    break;
+                case '%':
+                    serial_putc(port, '%');
+                    break;
+                default:
+                    serial_putc(port, '%');
+                    serial_putc(port, *fmt);
+                    break;
+            }
+        } else {
+            serial_putc(port, *fmt);
+        }
+        fmt++;
+    }
+    va_end(args);
 }

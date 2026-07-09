@@ -2,3 +2,4 @@ guide/
 .trae/
 build/
 docs/
+.DS_Store

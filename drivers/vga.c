@@ -1,7 +1,7 @@
 #include "vga.h"
 #include "stdarg.h"
 #include "io.h"
-
+#include "serial.h"
 // vga_buffer[行 * 80 + 列] = (属性 << 8) | 字符
 #define VGA_ADDR   0xB8000
 #define VGA_WIDTH  80
@@ -30,12 +30,6 @@ void vga_init(void){
 void vga_putchar_at(char c, u8 color, int row, int col)
 {
     vga_buffer[row * VGA_WIDTH + col] = (color << 8) | c;
-    // if(cursor_col!=80){
-    //     cursor_col++;
-    // }else{
-    //     cursor_col=0;
-    //     cursor_row++;
-    // }
 }
 
 void vga_putc(char c){
@@ -132,5 +126,6 @@ void vga_printf(const char *fmt, ...){
 void panic(const char *msg) {
     vga_puts("KERNEL PANIC: ");
     vga_puts(msg);
+    serial_printf(SERIAL_COM1, "KERNEL PANIC: %s\n", msg);
     while(1);
 }

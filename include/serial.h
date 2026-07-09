@@ -18,4 +18,7 @@ void serial_puts(u16 port, const char *s);
 /* 写入一个十六进制数（调试用） */
 void serial_puthex(u16 port, u32 val);
 
+/* 格式化输出（printf 风格） */
+void serial_printf(u16 port, const char *fmt, ...);
+
 #endif /* SERIAL_H */

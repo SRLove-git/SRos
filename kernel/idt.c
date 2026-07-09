@@ -3,6 +3,8 @@
 #include "types.h"
 #include "io.h"
 #include "irq.h"
+#include "paging.h"
+#include "serial.h"
 
 struct idt_entry idt[256];
 struct idt_ptr idtr;
@@ -46,8 +48,10 @@ void idt_init(void){
     idt_set_gate(45, isr45, 0x08, 0x8E);
     idt_set_gate(46, isr46, 0x08, 0x8E);
     idt_set_gate(47, isr47, 0x08, 0x8E);
-   
-    
+    idt_set_gate(128, isr128, 0x08, 0xEF);
+
+
+
 
 
     asm volatile("lidt %0" :: "m"(idtr));
@@ -67,11 +71,17 @@ void isr_handler(registers_t *regs) {
                regs->int_no, regs->int_no, regs->err_code);
     vga_printf("  EIP=0x%x, CS=0x%x, EFLAGS=0x%x\n",
                regs->eip, regs->cs, regs->eflags);
+    serial_printf(SERIAL_COM1, "Exception: #%d (0x%x), error code: 0x%x\n",
+               regs->int_no, regs->int_no, regs->err_code);
+    serial_printf(SERIAL_COM1, "  EIP=0x%x, CS=0x%x, EFLAGS=0x%x\n",
+               regs->eip, regs->cs, regs->eflags);
 
     if (regs->int_no != 14) {
         panic("Unhandled exception!");
     }
+    page_fault_handler(regs);
 }
+
 
 
 void memset(void *str, int c, u32 n){
