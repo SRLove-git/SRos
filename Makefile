@@ -1,7 +1,13 @@
 # Makefile — SROS x86 Kernel Build System
 #
-# 使用 x86_64-elf- 交叉编译器（通过 Homebrew 安装）：
+# macOS 使用 x86_64-elf- 交叉编译器（通过 Homebrew 安装）：
 #   brew install x86_64-elf-gcc x86_64-elf-binutils
+#
+# Linux 使用包管理器安装（详见 README.md）：
+#   sudo apt install gcc-x86_64-elf qemu-system-x86
+#
+# Windows 使用 Scoop 或 MSYS2 安装（详见 README.md）：
+#   scoop install gcc-x86_64-elf qemu
 #
 # 常用命令：
 #   make            构建内核
@@ -31,7 +37,7 @@ LDFLAGS := \
     -T linker.ld
 
 # 源文件
-C_SRCS := $(wildcard kernel/*.c drivers/*.c)
+C_SRCS := $(wildcard kernel/*.c drivers/*.c user/*.c)
 ASM_SRCS := $(wildcard boot/*.s)
 OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SRCS))
 OBJS += $(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SRCS))
@@ -55,17 +61,24 @@ $(BUILD_DIR)/%.o: %.s
 	@mkdir -p $(@D)
 	$(AS) --32 -o $@ $<
 
+# 检测操作系统
+ifeq ($(OS),Windows_NT)
+RUN_SCRIPT := scripts\\run.bat
+else
+RUN_SCRIPT := ./scripts/run.sh
+endif
+
 # 运行
 run: all
-	@./scripts/run.sh
+	@$(RUN_SCRIPT)
 
 # 调试模式
 debug: all
-	@./scripts/run.sh -d
+	@$(RUN_SCRIPT) -d
 
 # 监视模式
 monitor: all
-	@./scripts/run.sh -m
+	@$(RUN_SCRIPT) -m
 
 # 清理
 clean:

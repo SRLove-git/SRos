@@ -88,6 +88,7 @@ int kbd_buffer_has_data(void) {
     return kbd_buffer_head != kbd_buffer_tail;
 }
 void keyboard_handler(registers_t *regs){
+    (void)regs;
     u8 scancode = inb(0x60);
     /* 松开事件 */
     if(scancode & 0x80){

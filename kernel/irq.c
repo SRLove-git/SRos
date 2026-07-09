@@ -16,6 +16,7 @@ void pit_init(u32 frequency_hz){
 
 }
 void timer_handler(registers_t *regs){
+    (void)regs;
     timer_ticks++;
 }
 void irq_handler(registers_t *regs){

@@ -75,11 +75,50 @@
 
 ## 📦 前置条件
 
-在 macOS（ARM64）上安装所需工具：
+### macOS（ARM64）
 
 ```bash
 brew install x86_64-elf-gcc x86_64-elf-binutils qemu
 ```
+
+### Linux
+
+**Ubuntu / Debian**
+
+```bash
+sudo apt install gcc-x86_64-elf qemu-system-x86
+```
+
+**Fedora**
+
+```bash
+sudo dnf install gcc-x86_64-elf qemu-system-x86
+```
+
+**Arch Linux / Manjaro**
+
+```bash
+sudo pacman -S qemu-system-x86
+# x86_64-elf-gcc 可通过 AUR（如 yay）安装：
+# yay -S x86_64-elf-gcc
+```
+
+### Windows
+
+方式一：使用 **Scoop**（推荐）
+
+```powershell
+scoop bucket add main
+scoop install gcc-x86_64-elf qemu
+```
+
+方式二：使用 **MSYS2**
+
+```bash
+pacman -S mingw-w64-x86_64-x86_64-elf-gcc mingw-w64-x86_64-qemu
+```
+
+> 安装完成后，在 MSYS2 MinGW64 终端或 PowerShell（Scoop 已加入 PATH）中执行 `make` 即可构建。
 
 ---
 
@@ -102,7 +141,8 @@ make monitor
 make clean
 ```
 
-> 在 QEMU 中按 **Ctrl+A** 再按 **X** 可退出。
+> 在 QEMU 中按 **Ctrl+A** 再按 **X** 可退出（macOS/Linux）。
+> Windows 下直接关闭 QEMU 窗口即可退出。
 
 ---
 
@@ -135,7 +175,8 @@ SROS/
 │   └── keyboard.h / serial.h / vga.h
 │
 ├── scripts/
-│   └── run.sh               #     QEMU 启动脚本
+│   ├── run.sh               #     QEMU 启动脚本（macOS/Linux）
+│   └── run.bat              #     QEMU 启动脚本（Windows）
 ├── linker.ld                # 🔗 链接脚本
 ├── Makefile                 # 🏗️ 构建系统
 └── README.md
@@ -179,6 +220,8 @@ x86_64-elf-gdb build/sros.bin
 (gdb) break kernel_main
 (gdb) continue
 ```
+
+> Windows 下同样支持 GDB 调试（Scoop/MSYS2 均已包含 `x86_64-elf-gdb`）。
 
 ---
 

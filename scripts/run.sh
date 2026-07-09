@@ -1,8 +1,7 @@
 #!/bin/bash
-# run.sh — 使用 QEMU 在 Mac (M4/ARM64) 上运行 x86_64 内核
+# run.sh — 使用 QEMU 运行 x86_64 内核
 #
-# 前提条件：
-#   brew install x86_64-elf-gcc x86_64-elf-binutils qemu
+# 支持 macOS 和 Linux
 #
 # 用法：
 #   ./scripts/run.sh           # 普通模式
@@ -21,6 +20,14 @@ if [ ! -f "$KERNEL" ]; then
     exit 1
 fi
 
+# 检测操作系统，设置显示后端
+UNAME_S=$(uname -s)
+if [ "$UNAME_S" = "Darwin" ]; then
+    DISPLAY_BACKEND="cocoa"
+else
+    DISPLAY_BACKEND="gtk"
+fi
+
 # 基础 QEMU 参数
 QEMU_ARGS=(
     -kernel      "$KERNEL"
@@ -28,7 +35,7 @@ QEMU_ARGS=(
     -serial      stdio
     -no-reboot
     -no-shutdown
-    -display     cocoa
+    -display     "$DISPLAY_BACKEND"
 )
 
 # 不同运行模式
