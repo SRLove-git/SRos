@@ -46,6 +46,8 @@
   - `SYS_WRITE` — 输出字符
   - `SYS_GETCHAR` — 阻塞读键盘
   - `SYS_READ` — 批量读取
+  - `SYS_CLEAR` — 清屏
+- **交互式 Shell**（echo / clear / help）
 
 </td>
 </tr>
@@ -161,7 +163,8 @@ SROS/
 │   ├── idt.c                #     IDT + int 0x80 + 缺页处理
 │   ├── irq.c                #     IRQ + PIT 定时器
 │   ├── paging.c             #     分页 & 物理页帧分配
-│   └── syscall.c            #     系统调用处理
+│   ├── syscall.c            #     系统调用处理
+│   └── string.c             #     字符串工具函数
 │
 ├── drivers/                 # 🛠️ 设备驱动
 │   ├── vga.c                #     VGA 文本模式 + 光标
@@ -171,8 +174,13 @@ SROS/
 ├── include/                 # 📋 头文件
 │   ├── types.h              #     u8/u16/u32 定义
 │   ├── io.h                 #     inb/outb 端口 I/O
+│   ├── string.h             #     字符串工具函数声明
 │   ├── gdt.h / idt.h / irq.h / paging.h / syscall.h
 │   └── keyboard.h / serial.h / vga.h
+│
+├── user/                    # 👤 用户态程序
+│   ├── shell.c              #     交互式命令行
+│   └── shell.h              #     Shell 接口声明
 │
 ├── scripts/
 │   ├── run.sh               #     QEMU 启动脚本（macOS/Linux）
@@ -193,15 +201,32 @@ SROS/
 | 1 | `SYS_WRITE` | `ebx = 字符` | 输出一个字符到屏幕 |
 | 2 | `SYS_GETCHAR` | — | 阻塞等待键盘输入 |
 | 3 | `SYS_READ` | `ebx = buf`, `ecx = len` | 非阻塞批量读取 |
+| 4 | `SYS_CLEAR` | — | 清屏 |
 
 ```c
-// 用户态示例：回显键盘输入
-void user_function(void)
+// 用户态示例：Shell 交互命令行
+void shell_main(void)
 {
+    char line[256];
+    int  pos = 0;
+    puts("SRos> ");
     while (1) {
-        char c;
-        __asm__ volatile("mov $2, %%eax; int $0x80" : "=a"(c));   // getchar
-        __asm__ volatile("mov $1, %%eax; mov %0, %%ebx; int $0x80" :: "r"((u32)c));  // write
+        char c = getchar();
+        if (c == '\n') {
+            putchar('\n');
+            line[pos] = '\0';
+            execute(line);            // 解析并执行命令
+            pos = 0;
+            puts("SRos> ");
+        }
+        else if (c == '\b' && pos > 0) {
+            pos--;
+            putchar('\b');
+        }
+        else if (pos < 255) {
+            line[pos++] = c;
+            putchar(c);
+        }
     }
 }
 ```
@@ -227,7 +252,7 @@ x86_64-elf-gdb build/sros.bin
 
 ## 📋 待实现
 
-- [ ] **Shell** — 交互式命令行，支持基本命令
+- [x] **Shell** — 交互式命令行，支持基本命令（`echo`、`clear`、`help`）
 - [ ] **堆内存分配器 (kmalloc)** — 内核动态内存分配
 - [ ] **文件系统** — 磁盘读写与文件管理
 - [ ] **系统调用扩展** — 更多用户态服务
