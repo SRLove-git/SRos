@@ -30,7 +30,8 @@ CFLAGS := \
     -nostdlib \
     -m32 \
     -Wall -Wextra \
-    -I include
+    -I include \
+	-I user
 
 LDFLAGS := \
     -m elf_i386 \

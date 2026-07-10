@@ -5,6 +5,7 @@
 #include "irq.h"
 #include "paging.h"
 #include "serial.h"
+#include "string.h"
 
 struct idt_entry idt[256];
 struct idt_ptr idtr;
@@ -84,9 +85,3 @@ void isr_handler(registers_t *regs) {
 
 
 
-void memset(void *str, int c, u32 n){
-    unsigned char *s = (unsigned char *)str;
-    while(n--){
-        s[n] = c;
-    }
-}

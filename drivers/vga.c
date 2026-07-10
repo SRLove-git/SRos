@@ -39,6 +39,10 @@ void vga_putc(char c){
     }else if(c == '\n'){
         cursor_col=0;
         cursor_row++;
+        if (cursor_row >= VGA_HEIGHT) {
+            vga_scroll();
+            cursor_row = VGA_HEIGHT - 1;
+        }
     }else{
         if(cursor_col == VGA_WIDTH){
             cursor_col=0;

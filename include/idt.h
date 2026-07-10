@@ -26,7 +26,6 @@ typedef struct {
 
 
 void idt_init(void);
-void memset(void *str, int c, u32 n);
 void idt_set_gate(int vector, void (*handler)(void), u16 selector, u8 type_attr);
 void isr_handler(registers_t *regs);
 // 汇编中断入口声明

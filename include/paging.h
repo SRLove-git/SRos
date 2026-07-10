@@ -4,6 +4,8 @@
 #include "types.h"
 #include "idt.h"
 #include "vga.h"
+#include "string.h"
+
 
 void pfa_push(u32 phys_addr);
 u32 pfa_alloc(void);

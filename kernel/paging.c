@@ -30,7 +30,7 @@ void paging_init(){
 
         for(int i = 0; i < 1024; i++){
             u32 phys = addr + i * 4096;
-            page_table[i] = phys | 0x03;
+            page_table[i] = phys | 0x07;
         }
         page_dir[pd_idx] = ((u32) page_table) | 0x03;
     }

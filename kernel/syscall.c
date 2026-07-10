@@ -49,6 +49,12 @@ void syscall_handler(registers_t *regs)
         break;
     }
 
+    case SYS_CLEAR: {
+        vga_init();
+        regs->eax = 0;
+        break;
+    }
+
     default:
         /* 未知系统调用号，返回 -1 */
         regs->eax = -1;
