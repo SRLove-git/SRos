@@ -15,6 +15,7 @@ REM   scripts\run.bat -m          Monitor mode (open QEMU monitor)
 setlocal enabledelayedexpansion
 
 set KERNEL=build\sros.bin
+set DISK=build\disk.img
 set QEMU=qemu-system-x86_64
 
 REM Check if kernel file exists
@@ -23,8 +24,14 @@ if not exist "%KERNEL%" (
     exit /b 1
 )
 
+REM Create disk image if not exists (4MB)
+if not exist "%DISK%" (
+    echo [*] Creating disk image: %DISK% (4MB)
+    powershell -Command "$f = [System.IO.File]::Create('%DISK%'); $f.SetLength(4*1024*1024); $f.Close()"
+)
+
 REM Base QEMU arguments
-set QEMU_ARGS=-kernel "%KERNEL%" -m 128M -serial stdio -no-reboot -no-shutdown
+set QEMU_ARGS=-kernel "%KERNEL%" -drive file="%DISK%",format=raw,if=ide -m 128M -serial stdio -no-reboot -no-shutdown
 
 REM Parse mode argument
 if /i "%1"=="-d" goto debug_mode

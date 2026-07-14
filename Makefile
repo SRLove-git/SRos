@@ -50,19 +50,35 @@ OBJS += $(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SRCS))
 
 all: $(BUILD_DIR)/sros.bin
 
+# Windows 系统命令适配
+ifeq ($(OS),Windows_NT)
+MKDIR := if not exist
+RMDIR := rmdir /s /q
+RMFILE := del /f /q
+else
+MKDIR := mkdir -p
+RMDIR := rm -rf
+RMFILE := rm -f
+endif
+
+# 创建目录（兼容 Windows 和 Unix）
+define make_dir
+	$(MKDIR) $(1) mkdir $(1)
+endef
+
 # 链接
 $(BUILD_DIR)/sros.bin: $(OBJS) linker.ld
-	@mkdir -p $(@D)
+	@$(call make_dir,$(subst /,\,$(@D)))
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
 # 编译 C
 $(BUILD_DIR)/%.o: %.c
-	@mkdir -p $(@D)
+	@$(call make_dir,$(subst /,\,$(@D)))
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # 汇编 .s
 $(BUILD_DIR)/%.o: %.s
-	@mkdir -p $(@D)
+	@$(call make_dir,$(subst /,\,$(@D)))
 	$(AS) --32 -o $@ $<
 
 # 检测操作系统
@@ -86,8 +102,8 @@ monitor: all
 
 # 清理
 clean:
-	rm -rf $(BUILD_DIR)
-	rm -f serial.log
+	-if exist $(BUILD_DIR) $(RMDIR) $(BUILD_DIR)
+	-if exist serial.log $(RMFILE) serial.log
 
 # 显示每个源文件的大小
 size: $(BUILD_DIR)/sros.bin
