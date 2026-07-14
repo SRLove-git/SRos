@@ -1,54 +1,55 @@
 @echo off
-REM run.bat — 使用 QEMU 在 Windows 上运行 x86_64 内核
+REM run.bat - Use QEMU on Windows to run x86_64 kernel
 REM
-REM 前提条件（使用 Scoop 安装）：
-REM   scoop install gcc-x86_64-elf qemu
+REM Prerequisites:
+REM   1. Download x86_64-elf-tools from:
+REM      https://github.com/lordmilko/i686-elf-tools/releases/tag/15.2.0
+REM      and add bin/ to PATH
+REM   2. Install QEMU (via Scoop): scoop install qemu
 REM
-REM 或者使用 MSYS2：
-REM   pacman -S mingw-w64-x86_64-x86_64-elf-gcc mingw-w64-x86_64-qemu
-REM
-REM 用法：
-REM   scripts\run.bat             普通模式
-REM   scripts\run.bat -d          调试模式（等待 GDB 连接）
-REM   scripts\run.bat -m          监视模式（打开 QEMU monitor）
+REM Usage:
+REM   scripts\run.bat             Normal mode
+REM   scripts\run.bat -d          Debug mode (wait for GDB connection)
+REM   scripts\run.bat -m          Monitor mode (open QEMU monitor)
 
 setlocal enabledelayedexpansion
 
 set KERNEL=build\sros.bin
 set QEMU=qemu-system-x86_64
 
-REM 检查内核文件是否存在
+REM Check if kernel file exists
 if not exist "%KERNEL%" (
-    echo [!] 内核文件不存在，请先执行 make
-    echo     make
+    echo [ERROR] Kernel binary not found, run 'make' first.
     exit /b 1
 )
 
-REM 基础 QEMU 参数
+REM Base QEMU arguments
 set QEMU_ARGS=-kernel "%KERNEL%" -m 128M -serial stdio -no-reboot -no-shutdown
 
-REM 不同运行模式
-if /i "%1"=="-d" (
-    echo [*] 调试模式启动中... (GDB 连接端口 :1234)
-    set QEMU_ARGS=%QEMU_ARGS% -s -S
-) else if /i "%1"=="--debug" (
-    echo [*] 调试模式启动中... (GDB 连接端口 :1234)
-    set QEMU_ARGS=%QEMU_ARGS% -s -S
-) else if /i "%1"=="-m" (
-    echo [*] 监视模式启动中... (串口日志: serial.log)
-    REM 将串口输出改为文件
-    set "QEMU_ARGS=!QEMU_ARGS:-serial stdio=-serial file:serial.log!"
-    set QEMU_ARGS=%QEMU_ARGS% -monitor stdio
-) else if /i "%1"=="--monitor" (
-    echo [*] 监视模式启动中... (串口日志: serial.log)
-    REM 将串口输出改为文件
-    set "QEMU_ARGS=!QEMU_ARGS:-serial stdio=-serial file:serial.log!"
-    set QEMU_ARGS=%QEMU_ARGS% -monitor stdio
-) else (
-    echo [*] 启动 SROS 内核...
-    echo [*] 按 Ctrl+Alt 然后按 G 释放鼠标，关闭窗口退出 QEMU
-    echo/
-)
+REM Parse mode argument
+if /i "%1"=="-d" goto debug_mode
+if /i "%1"=="--debug" goto debug_mode
+if /i "%1"=="-m" goto monitor_mode
+if /i "%1"=="--monitor" goto monitor_mode
+goto normal_mode
 
+:debug_mode
+echo [*] Debug mode starting... (GDB port :1234)
+set QEMU_ARGS=%QEMU_ARGS% -s -S
+goto run_qemu
+
+:monitor_mode
+echo [*] Monitor mode starting... (serial log: serial.log)
+set "QEMU_ARGS=!QEMU_ARGS:-serial stdio=-serial file:serial.log!"
+set QEMU_ARGS=%QEMU_ARGS% -monitor stdio
+goto run_qemu
+
+:normal_mode
+echo [*] Starting SROS kernel...
+echo [*] Press Ctrl+Alt then G to release mouse, close window to exit QEMU
+echo/
+goto run_qemu
+
+:run_qemu
 echo %QEMU% %QEMU_ARGS%
 %QEMU% %QEMU_ARGS%

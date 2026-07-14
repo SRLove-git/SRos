@@ -3,6 +3,10 @@
 #include "idt.h"
 #include "vga.h"
 #include "serial.h"
+
+/* kernel_after_paging 定义在 kernel.c 中，由 paging_init 调用（不返回） */
+extern void kernel_after_paging(void) __attribute__((noreturn));
+
 #define MAX_PAGES 1024
 
 static u32 page_frames[MAX_PAGES];
@@ -23,9 +27,10 @@ void pfa_free(u32 phys_addr){
 void paging_init(){
     u32 *page_dir = (u32 *) pfa_alloc();
     memset(page_dir, 0, 4096);
+    u32 *page_table = NULL;
     for(u32 addr = 0; addr < 0x400000; addr += 0x400000){
         int pd_idx = addr >> 22;
-        u32 *page_table = (u32 *) pfa_alloc();
+        page_table = (u32 *) pfa_alloc();
         memset(page_table, 0, 4096);
 
         for(int i = 0; i < 1024; i++){
@@ -34,12 +39,26 @@ void paging_init(){
         }
         page_dir[pd_idx] = ((u32) page_table) | 0x03;
     }
+
+    /* 修正 VGA 恒等映射：虚拟 0xB8000 → 物理 0xB8000
+     * pt_idx = (0xB8000>>12) & 0x3FF = 0x380，循环中默认指向 0x380000。
+     * 覆盖为 VGA 显存物理地址 0xB8000。 */
+    {
+        u32 vga_pt_idx = (0xB8000 >> 12) & 0x3FF;
+        u32 *pt0 = (u32 *)(page_dir[0] & 0xFFFFF000);
+        pt0[vga_pt_idx] = 0xB8000 | 0x03;
+    }
+
     asm volatile("mov %0, %%cr3" ::"r"(page_dir));
     u32 cr0;
     asm volatile("mov %%cr0, %0" : "=r"(cr0));
     cr0 |= 0x80000000;
     asm volatile("mov %0, %%cr0" ::"r"(cr0));
     page_dir[1023] = (u32)page_dir | 0x03;
+
+    /* 不返回，直接继续内核初始化 */
+    kernel_after_paging();
+    __builtin_unreachable();
 }
 void page_fault_handler(registers_t *regs) {
     u32 fault_addr;

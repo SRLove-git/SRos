@@ -6,8 +6,10 @@
 # Linux 使用包管理器安装（详见 README.md）：
 #   sudo apt install gcc-x86_64-elf qemu-system-x86
 #
-# Windows 使用 Scoop 或 MSYS2 安装（详见 README.md）：
-#   scoop install gcc-x86_64-elf qemu
+# Windows（详见 README.md）：
+#   1. 下载 https://github.com/lordmilko/i686-elf-tools/releases/tag/15.2.0
+#      中的 x86_64-elf-tools-windows.zip，解压并添加到 PATH
+#   2. scoop install qemu
 #
 # 常用命令：
 #   make            构建内核
@@ -31,14 +33,15 @@ CFLAGS := \
     -m32 \
     -Wall -Wextra \
     -I include \
-	-I user
+	-I user \
+	-I fs
 
 LDFLAGS := \
     -m elf_i386 \
     -T linker.ld
 
 # 源文件
-C_SRCS := $(wildcard kernel/*.c drivers/*.c user/*.c)
+C_SRCS := $(wildcard kernel/*.c drivers/*.c user/*.c fs/*.c)
 ASM_SRCS := $(wildcard boot/*.s)
 OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SRCS))
 OBJS += $(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SRCS))

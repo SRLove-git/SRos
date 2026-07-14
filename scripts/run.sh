@@ -11,6 +11,7 @@
 set -e
 
 KERNEL="build/sros.bin"
+DISK="build/disk.img"
 QEMU=qemu-system-x86_64
 
 # 检查内核文件是否存在
@@ -18,6 +19,12 @@ if [ ! -f "$KERNEL" ]; then
     echo "[!] 内核文件不存在，请先执行 make"
     echo "    make"
     exit 1
+fi
+
+# 如果磁盘镜像不存在，自动创建
+if [ ! -f "$DISK" ]; then
+    echo "[*] 创建磁盘镜像: $DISK (4MB)"
+    dd if=/dev/zero of="$DISK" bs=512 count=8192 2>/dev/null
 fi
 
 # 检测操作系统，设置显示后端
@@ -31,6 +38,7 @@ fi
 # 基础 QEMU 参数
 QEMU_ARGS=(
     -kernel      "$KERNEL"
+    -drive       file="$DISK",format=raw,if=ide
     -m           128M
     -serial      stdio
     -no-reboot

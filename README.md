@@ -107,12 +107,18 @@ sudo pacman -S qemu-system-x86
 
 ### Windows
 
-方式一：使用 **Scoop**（推荐）
+方式一：下载预编译工具链（推荐）
 
-```powershell
-scoop bucket add main
-scoop install gcc-x86_64-elf qemu
-```
+1. 下载 [x86_64-elf-tools-windows.zip](https://github.com/lordmilko/i686-elf-tools/releases/download/15.2.0/x86_64-elf-tools-windows.zip)
+2. 解压到 `C:\x86_64-elf-tools`
+3. 将 `C:\x86_64-elf-tools\bin` 添加到系统 PATH：
+   ```powershell
+   [Environment]::SetEnvironmentVariable("Path", "C:\x86_64-elf-tools\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
+   ```
+4. 安装 QEMU（通过 Scoop）：
+   ```powershell
+   scoop install qemu
+   ```
 
 方式二：使用 **MSYS2**
 
@@ -120,7 +126,7 @@ scoop install gcc-x86_64-elf qemu
 pacman -S mingw-w64-x86_64-x86_64-elf-gcc mingw-w64-x86_64-qemu
 ```
 
-> 安装完成后，在 MSYS2 MinGW64 终端或 PowerShell（Scoop 已加入 PATH）中执行 `make` 即可构建。
+> 安装完成后，在 PowerShell 或 MSYS2 终端中执行 `make` 即可构建。
 
 ---
 
