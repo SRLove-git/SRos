@@ -34,20 +34,61 @@
 - GDT 段描述符（含用户段 & TSS）
 - IDT 中断处理 & PIC 重映射
 - PIT 定时器 & 内核态中断
-- **分页内存管理**（4KB 页表）
+- **分页内存管理**（4KB 页表 + 自映射）
+- **物理页帧分配器**（PFA）
+- **堆内存分配器**（kmalloc）
 
 </td>
+<td width="50%">
+
+**进程管理** 📋
+- **抢占式多任务调度**（时间片轮转）
+- **`fork` 系统调用** — 创建子进程
+- **`exit` 系统调用** — 进程退出
+- **`wait` 系统调用** — 等待子进程
+- **`exec` 系统调用** — ELF 程序加载
+- **进程状态**：就绪/运行/阻塞/僵尸
+
+</td>
+</tr>
+<tr>
 <td width="50%">
 
 **用户态** 👤
 - Ring 3 用户模式跳转
 - TSS 内核栈自动切换
-- **`int 0x80` 系统调用**
-  - `SYS_WRITE` — 输出字符
-  - `SYS_GETCHAR` — 阻塞读键盘
-  - `SYS_READ` — 批量读取
-  - `SYS_CLEAR` — 清屏
-- **交互式 Shell**（echo / clear / help）
+- **`int 0x80` 系统调用**（17 个调用号）
+- **交互式 Shell**（echo / clear / help / ls / cat / touch / write / exec / fork_test）
+
+</td>
+<td width="50%">
+
+**文件系统** 📁
+- **SFS** — 简单文件系统
+- 文件创建/打开/读写/关闭
+- 磁盘块管理与目录项
+- 启动时自动挂载
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**驱动** 🛠️
+- VGA 文本模式（`0xB8000`）
+- 硬件光标追踪 & 退格键
+- 串口 COM1 调试输出（`printf` 风格）
+- PS/2 键盘中断驱动 + 缓冲区
+
+</td>
+<td width="50%">
+
+**调试** 🔍
+- GDB 远程调试（`:1234`）
+- QEMU Monitor 模式
+- 串口日志输出
+- 异常处理 & 内核恐慌
+- ELF 可执行程序加载
 
 </td>
 </tr>
@@ -168,8 +209,11 @@ SROS/
 │   ├── gdt.c                #     GDT + TSS + 用户段
 │   ├── idt.c                #     IDT + int 0x80 + 缺页处理
 │   ├── irq.c                #     IRQ + PIT 定时器
-│   ├── paging.c             #     分页 & 物理页帧分配
-│   ├── syscall.c            #     系统调用处理
+│   ├── paging.c             #     分页 & 物理页帧分配器
+│   ├── scheduler.c          #     进程调度器（RR + fork/exit/wait）
+│   ├── syscall.c            #     系统调用处理（17 个调用号）
+│   ├── elf_loader.c         #     ELF 可执行程序加载器
+│   ├── kmalloc.c            #     堆内存分配器
 │   └── string.c             #     字符串工具函数
 │
 ├── drivers/                 # 🛠️ 设备驱动
@@ -182,11 +226,16 @@ SROS/
 │   ├── io.h                 #     inb/outb 端口 I/O
 │   ├── string.h             #     字符串工具函数声明
 │   ├── gdt.h / idt.h / irq.h / paging.h / syscall.h
+│   ├── scheduler.h / elf_loader.h / kmalloc.h
 │   └── keyboard.h / serial.h / vga.h
 │
 ├── user/                    # 👤 用户态程序
 │   ├── shell.c              #     交互式命令行
 │   └── shell.h              #     Shell 接口声明
+│
+├── fs/                      # 📁 文件系统
+│   ├── ramdisk.c            #     内存磁盘驱动
+│   └── sfs.c                #     SFS 简单文件系统
 │
 ├── scripts/
 │   ├── run.sh               #     QEMU 启动脚本（macOS/Linux）
@@ -204,13 +253,26 @@ SROS/
 
 | 调用号 | 名称 | 参数 | 说明 |
 |:------:|:----:|:----|:-----|
+| 0 | `SYS_READ` | `ebx = buf`, `ecx = len` | 非阻塞批量读取键盘 |
 | 1 | `SYS_WRITE` | `ebx = 字符` | 输出一个字符到屏幕 |
 | 2 | `SYS_GETCHAR` | — | 阻塞等待键盘输入 |
-| 3 | `SYS_READ` | `ebx = buf`, `ecx = len` | 非阻塞批量读取 |
-| 4 | `SYS_CLEAR` | — | 清屏 |
+| 3 | `SYS_CLEAR` | — | 清屏 |
+| 4 | `SYS_FS_OPEN` | `ebx = path` | 打开文件 |
+| 5 | `SYS_FS_READ` | `ebx = fd`, `ecx = buf`, `edx = count` | 读文件 |
+| 6 | `SYS_FS_WRITE` | `ebx = fd`, `ecx = buf`, `edx = count` | 写文件 |
+| 7 | `SYS_FS_CLOSE` | `ebx = fd` | 关闭文件 |
+| 8 | `SYS_FS_CREATE` | `ebx = name` | 创建文件 |
+| 9 | `SYS_FS_LS` | `ebx = buf`, `ecx = size` | 列出根目录 |
+| 10 | `SYS_KMALLOC` | `ebx = size` | 分配堆内存 |
+| 11 | `SYS_KFREE` | `ebx = ptr` | 释放堆内存 |
+| 12 | `SYS_KMALLOC_DUMP` | — | 打印堆状态 |
+| 13 | `SYS_EXEC` | `ebx = path` | 加载并执行 ELF 程序 |
+| 14 | `SYS_EXIT` | `ebx = exit_code` | 退出当前进程 |
+| 15 | `SYS_FORK` | — | 创建子进程 |
+| 16 | `SYS_WAIT` | `ebx = pid` | 等待子进程退出 |
 
 ```c
-// 用户态示例：Shell 交互命令行
+// 用户态示例：Shell 交互命令行（支持命令历史、行编辑）
 void shell_main(void)
 {
     char line[256];
@@ -221,14 +283,19 @@ void shell_main(void)
         if (c == '\n') {
             putchar('\n');
             line[pos] = '\0';
+            history_add(line);
             execute(line);            // 解析并执行命令
             pos = 0;
+            history_index = -1;
             puts("SRos> ");
         }
-        else if (c == '\b' && pos > 0) {
-            pos--;
-            putchar('\b');
+        else if (c == '\b') {
+            if (pos > 0) {
+                pos--;
+                // 行内删除 + 光标重绘
+            }
         }
+        // 支持方向键 ↑↓ 浏览历史、←→ 移动光标
         else if (pos < 255) {
             line[pos++] = c;
             putchar(c);
@@ -236,6 +303,8 @@ void shell_main(void)
     }
 }
 ```
+
+支持命令：`echo`、`clear`、`help`、`ls`、`cat`、`touch`、`write`、`kmalloc`、`kfree`、`kmdump`、`exec`、`fork_test`
 
 ---
 
@@ -275,8 +344,8 @@ x86_64-elf-gdb build/sros.bin
 - [x] 多平台构建 — macOS / Linux / Windows
 - [x] 堆内存分配器 (kmalloc) — 内核动态内存分配
 - [x] 文件系统 — 磁盘读写与文件管理
-- [ ] 系统调用扩展 — 更多用户态服务
-- [ ] 进程管理 — 多任务调度与切换
+- [x] 进程管理 — 抢占式多任务调度（fork/exit/wait）
+- [x] ELF 程序加载器 — exec 系统调用
 - [ ] 更多...
 
 ---

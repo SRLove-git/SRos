@@ -53,3 +53,12 @@ void memset(void *str, int c, u32 n){
         s[n] = c;
     }
 }
+
+void *memcpy(void *dest, const void *src, u32 n)
+{
+    unsigned char *d = (unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
+    while (n--)
+        *d++ = *s++;
+    return dest;
+}

@@ -43,6 +43,16 @@ isr128:
     call syscall_handler
     add $4, %esp        # 恢复栈
 
+    # 调用调度器（可能因 fork/exit/wait 需要切换任务）
+    # 关键：在调用 scheduler_tick 前禁用中断，防止时钟中断
+    # 在 scheduler_tick 返回后破坏 eax（popa 会覆盖 eax）。
+    # iret 会恢复 eflags 中的 IF 位，自动重新启用中断。
+    cli
+    push %esp
+    call scheduler_tick
+    add $4, %esp
+    mov %eax, %esp
+
     # 恢复段寄存器
     pop %gs
     pop %fs

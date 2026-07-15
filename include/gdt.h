@@ -56,4 +56,7 @@ void tss_init(void);
 #define GDT_ENTRIES 6
 extern struct gdt_entry gdt[GDT_ENTRIES];
 
+/* TSS 结构体（定义在 gdt.c，调度器需要修改 esp0） */
+extern struct tss tss;
+
 #endif /* GDT_H */

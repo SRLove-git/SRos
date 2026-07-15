@@ -7,6 +7,9 @@
 #include "ramdisk.h"
 #include "kmalloc.h"
 #include "string.h"
+#include "elf_loader.h"
+#include "paging.h"
+#include "scheduler.h"
 
 void syscall_handler(registers_t *regs)
 {
@@ -33,7 +36,9 @@ void syscall_handler(registers_t *regs)
     }
 
     case SYS_WRITE: {
-        vga_putc((char)regs->ebx);
+        char c = (char)regs->ebx;
+        vga_putc(c);
+        serial_putc(SERIAL_COM1, c);
         regs->eax = 0;
         break;
     }
@@ -146,6 +151,37 @@ void syscall_handler(registers_t *regs)
     case SYS_KMALLOC_DUMP: {
         kmalloc_dump();
         regs->eax = 0;
+        break;
+    }
+
+    case SYS_EXEC: {
+        /* ebx = path (user-space string pointer) */
+        const char *path = (const char *)regs->ebx;
+        int ret = elf_load_and_exec(path, regs);
+        if (ret < 0) {
+            regs->eax = -1;
+        }
+        /* 成功时 regs 被修改，iret 将跳转到用户程序入口 */
+        break;
+    }
+
+    case SYS_EXIT: {
+        /* ebx = exit_code */
+        task_exit((int)regs->ebx);
+        /* task_exit 通过 int $32 切换到下一个任务，不应返回 */
+        break;
+    }
+
+    case SYS_FORK: {
+        int pid = task_fork(regs);
+        regs->eax = (pid >= 0) ? (u32)pid : -1;
+        break;
+    }
+
+    case SYS_WAIT: {
+        /* ebx = pid (-1 表示等待任意子进程) */
+        int ret = task_wait((int)regs->ebx);
+        regs->eax = (u32)ret;
         break;
     }
 

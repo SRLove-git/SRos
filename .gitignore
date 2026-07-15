@@ -3,3 +3,7 @@ guide/
 build/
 docs/
 .DS_Store
+tools/
+serial.log
+*.img
+test_fork.exp

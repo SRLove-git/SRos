@@ -81,6 +81,12 @@ irq_common:
     call  irq_handler    # void irq_handler(registers_t *regs)
     add   $4, %esp       # 清理 push %esp
 
+    # 调用调度器（可能切换任务，返回新任务的 regs 指针）
+    push  %esp
+    call  scheduler_tick # registers_t* scheduler_tick(registers_t *regs)
+    add   $4, %esp
+    mov   %eax, %esp     # 切换到新任务的内核栈！
+
     # 恢复段寄存器
     pop   %gs
     pop   %fs

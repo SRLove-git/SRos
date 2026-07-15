@@ -15,9 +15,14 @@
 #define SYS_FS_CREATE 8   // 创建文件
 #define SYS_FS_LS     9   // 列出根目录
 
-#define SYS_KMALLOC   10  // 分配堆内存
-#define SYS_KFREE     11  // 释放堆内存
+#define SYS_KMALLOC      10  // 分配堆内存
+#define SYS_KFREE        11  // 释放堆内存
 #define SYS_KMALLOC_DUMP 12  // 打印堆状态
+
+#define SYS_EXEC         13  // 加载并执行 ELF 程序
+#define SYS_EXIT         14  // 退出用户程序
+#define SYS_FORK         15  // 创建子进程
+#define SYS_WAIT         16  // 等待子进程退出
 
 void syscall_handler(registers_t *regs);
 

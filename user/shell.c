@@ -163,6 +163,63 @@ static void sys_kmdump(void)
     );
 }
 
+/* ===== 用户程序执行系统调用包装 ===== */
+
+static int sys_exec(const char *path)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov $13, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)path)
+        : "ebx"
+    );
+    return ret;
+}
+
+/* ===== 进程控制系统调用包装 ===== */
+
+static int sys_fork(void)
+{
+    int pid;
+    __asm__ volatile(
+        "mov $15, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(pid)
+        :
+        :
+    );
+    return pid;
+}
+
+static void sys_exit(int code)
+{
+    __asm__ volatile(
+        "mov %0, %%ebx\n\t"
+        "mov $14, %%eax\n\t"
+        "int $0x80\n\t"
+        :
+        : "r"((u32)code)
+        : "eax", "ebx"
+    );
+}
+
+static int sys_wait(int pid)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov $16, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)pid)
+        : "ebx"
+    );
+    return ret;
+}
+
 /* ===== 辅助函数 ===== */
 
 static void puthex(u32 val)
@@ -260,6 +317,8 @@ void cmd_help(int argc, char *argv[]){
     puts("  kmalloc <size>      - Allocate heap memory\n");
     puts("  kfree <hexaddr>     - Free heap memory\n");
     puts("  kmdump              - Dump heap state\n");
+    puts("  exec <file>         - Execute a user program\n");
+    puts("  fork_test           - Test fork/wait/exit\n");
 }
 void cmd_echo(int argc, char *argv[]){
     if (argc == 1) {
@@ -365,6 +424,67 @@ void cmd_write(int argc, char *argv[]){
     putchar('\n');
 }
 
+void cmd_exec(int argc, char *argv[])
+{
+    if (argc < 2) {
+        puts("Usage: exec <filename>\n");
+        return;
+    }
+
+    /* 构建路径：/ + 文件名 */
+    char path[64];
+    path[0] = '/';
+    path[1] = '\0';
+    strcpy(path + 1, argv[1]);
+
+    puts("Loading: ");
+    puts(argv[1]);
+    puts("\n");
+
+    int ret = sys_exec(path);
+    if (ret < 0) {
+        puts("Error: Failed to load program\n");
+    }
+    /* 成功时不返回 */
+}
+
+/* ===== Fork/Exit/Wait 测试命令 ===== */
+
+static void cmd_fork_test(int argc, char *argv[])
+{
+    (void)argc; (void)argv;
+
+    puts("Fork test: about to fork...\n");
+
+    int pid = sys_fork();
+    if (pid < 0) {
+        puts("Fork failed!\n");
+        return;
+    }
+
+    if (pid == 0) {
+        /* 子进程 — 输出子进程 PID 确认 */
+        puts("Child process: about to exit...\n");
+        sys_exit(42);
+        /* 不应到达这里 — 如果到达说明 sys_exit 返回了！ */
+        puts("[BUG] Child: sys_exit returned to user mode!\n");
+        /* 死循环防止继续执行 */
+        for (;;) {
+            __asm__ volatile("hlt");
+        }
+    } else {
+        /* 父进程 */
+        puts("Parent process: PID=");
+        puthex(pid);
+        puts("\nParent: waiting for child...\n");
+
+        int ret = sys_wait(-1);
+        puts("Parent: wait returned PID=");
+        puthex(ret);
+        puts("\nParent: done.\n");
+    }
+}
+
 int parse_command(char *line, char *argv[], int max_args) {
     int argc = 0;
     char *p = line;
@@ -411,6 +531,12 @@ void execute(char *line){
     }else if(strcmp(argv[0], "kmdump") == 0){
         cmd_kmdump(argc, argv);
     }
+    else if (strcmp(argv[0], "exec") == 0) {
+        cmd_exec(argc, argv);
+    }
+    else if (strcmp(argv[0], "fork_test") == 0) {
+        cmd_fork_test(argc, argv);
+    }
     else {
         puts("Error: Unknown command\n");
     }
@@ -454,7 +580,6 @@ void shell_main(void){
     static char saved_line[256];
     static int saved_pos = 0;
     int history_index = -1;   /* -1 = 当前输入, 0..n = 历史 */
-
     puts("SRos> ");
     while (1) {
         int c = getchar();

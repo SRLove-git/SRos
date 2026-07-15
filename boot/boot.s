@@ -33,6 +33,15 @@ stack_top:
     .globl _start
 _start:
     mov $stack_top, %esp
+
+    /* 清零 BSS 段（确保全局变量初始为 0） */
+    mov $_bss_start, %edi
+    mov $_bss_end, %ecx
+    sub %edi, %ecx
+    xor %eax, %eax
+    cld
+    rep stosb
+
     call kernel_main
 
     /* 如果 kernel_main 返回，停机 */
