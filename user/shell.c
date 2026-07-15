@@ -2,6 +2,7 @@
 #include "string.h"
 #include "types.h"
 #include "syscall.h"
+#include "keyboard.h"
 
 void puts(char *str){
     while(*str != '\0'){
@@ -9,8 +10,8 @@ void puts(char *str){
         str++;
     }
 }
-char getchar(void){
-    char c;
+int getchar(void){
+    int c;
     __asm__ volatile(
         "mov $2, %%eax\n\t"
         "int $0x80\n\t"
@@ -415,27 +416,132 @@ void execute(char *line){
     }
 }
 
+/* ===== 命令历史 ===== */
+#define HISTORY_MAX 16
+static char history[HISTORY_MAX][256];
+static int history_count = 0;
+
+static void history_add(const char *cmd)
+{
+    if (strlen(cmd) == 0) return;
+
+    /* 不重复添加连续相同的命令 */
+    if (history_count > 0 && strcmp(history[history_count - 1], cmd) == 0)
+        return;
+
+    /* 如果满了，整体前移扔掉最旧的 */
+    if (history_count >= HISTORY_MAX) {
+        for (int i = 1; i < HISTORY_MAX; i++)
+            strcpy(history[i - 1], history[i]);
+        history_count = HISTORY_MAX - 1;
+    }
+
+    strcpy(history[history_count], cmd);
+    history_count++;
+}
+
+/* 从屏幕上清除 len 个字符 */
+static void clear_input(int len)
+{
+    while (len-- > 0)
+        putchar('\b');
+}
+
 void shell_main(void){
     char line[256];
     int  pos = 0;
+    int  line_len = 0;
+    static char saved_line[256];
+    static int saved_pos = 0;
+    int history_index = -1;   /* -1 = 当前输入, 0..n = 历史 */
+
     puts("SRos> ");
     while (1) {
-        char c = getchar();
+        int c = getchar();
         if (c == '\n') {
             putchar('\n');
             line[pos] = '\0';
+            history_add(line);
             execute(line);
             pos = 0;
+            line_len = 0;
+            history_index = -1;
             puts("SRos> ");
         }
         else if (c == '\b') {
             if (pos > 0) {
                 pos--;
-                putchar('\b');
+                line_len--;
+                putchar('\b');   /* 光标左移，在删除位置写空格 */
+
+                /* 将光标后的字符逐一左移 */
+                for (int i = pos; i < line_len; i++)
+                    line[i] = line[i + 1];
+                line[line_len] = '\0';
+
+                /* 重新绘制从光标到行尾的内容 */
+                for (int i = pos; i < line_len; i++)
+                    putchar(line[i]);
+                putchar(' ');    /* 清除行尾旧字符 */
+
+                /* 将光标移回编辑位置 */
+                for (int i = pos; i < line_len + 1; i++)
+                    putchar(CURSOR_LEFT);
             }
+        }
+        else if (c == KEY_UP) {
+            if (history_count == 0) continue;
+            if (history_index == -1) {
+                strcpy(saved_line, line);
+                saved_pos = pos;
+            }
+            if (history_index < history_count - 1) {
+                history_index++;
+                clear_input(pos);
+                strcpy(line, history[history_count - 1 - history_index]);
+                pos = strlen(line);
+                line_len = pos;
+                puts(line);
+            }
+            continue;
+        }
+        else if (c == KEY_DOWN) {
+            if (history_index == -1) continue;
+            if (history_index > 0) {
+                history_index--;
+                clear_input(pos);
+                strcpy(line, history[history_count - 1 - history_index]);
+                pos = strlen(line);
+                line_len = pos;
+                puts(line);
+            }
+            else {
+                history_index = -1;
+                clear_input(pos);
+                strcpy(line, saved_line);
+                pos = saved_pos;
+                line_len = pos;
+                puts(line);
+            }
+            continue;
+        }
+        else if (c == KEY_LEFT) {
+            if (pos > 0) {
+                pos--;
+                putchar(CURSOR_LEFT);
+            }
+            continue;
+        }
+        else if (c == KEY_RIGHT) {
+            if (pos < line_len) {
+                putchar(CURSOR_RIGHT);
+                pos++;
+            }
+            continue;
         }
         else if (pos < 255) {
             line[pos++] = c;
+            if (pos > line_len) line_len = pos;
             putchar(c);
         }
     }

@@ -11,7 +11,7 @@
 set -e
 
 KERNEL="build/sros.bin"
-DISK="build/disk.img"
+DISK="build/disk_copy.img"
 QEMU=qemu-system-x86_64
 
 # 检查内核文件是否存在

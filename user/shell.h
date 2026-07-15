@@ -2,7 +2,7 @@
 #define SHELL_H
 
 void shell_main(void);
-char getchar(void);
+int getchar(void);
 void putchar(char c);
 void execute(char *cmd);
 int parse_command(char *line, char *argv[], int max_args);

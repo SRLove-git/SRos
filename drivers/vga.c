@@ -2,6 +2,7 @@
 #include "stdarg.h"
 #include "io.h"
 #include "serial.h"
+#include "keyboard.h"
 // vga_buffer[行 * 80 + 列] = (属性 << 8) | 字符
 #define VGA_ADDR   0xB8000
 #define VGA_WIDTH  80
@@ -43,6 +44,10 @@ void vga_putc(char c){
             vga_scroll();
             cursor_row = VGA_HEIGHT - 1;
         }
+    }else if (c == CURSOR_LEFT) {
+        if (cursor_col > 0) cursor_col--;
+    }else if (c == CURSOR_RIGHT) {
+        if (cursor_col < VGA_WIDTH - 1) cursor_col++;
     }else{
         if(cursor_col == VGA_WIDTH){
             cursor_col=0;

@@ -59,26 +59,26 @@ static u8 ctrl_pressed = 0;
 static u8 caps_lock_active = 0;
 
 
-static char kbd_buffer[KEYBOARD_BUFFER_SIZE];
+static unsigned char kbd_buffer[KEYBOARD_BUFFER_SIZE];
 static int  kbd_buffer_head = 0;  // 写指针
 static int  kbd_buffer_tail = 0;  // 读指针
 
 // 向缓冲区写入一个字符（在中断处理函数中调用）
-void kbd_buffer_put(char c) {
+void kbd_buffer_put(int c) {
     int next = (kbd_buffer_head + 1) % KEYBOARD_BUFFER_SIZE;
     if (next != kbd_buffer_tail) {          // 检查缓冲区是否已满
-        kbd_buffer[kbd_buffer_head] = c;
+        kbd_buffer[kbd_buffer_head] = (unsigned char)c;
         kbd_buffer_head = next;
     }
     // 如果满了，丢弃该字符（防止中断处理函数阻塞）
 }
 
 // 从缓冲区读取一个字符（在主循环中调用）
-char kbd_buffer_get(void) {
+int kbd_buffer_get(void) {
     if (kbd_buffer_head == kbd_buffer_tail) {
         return 0;  // 缓冲区为空
     }
-    char c = kbd_buffer[kbd_buffer_tail];
+    int c = kbd_buffer[kbd_buffer_tail];
     kbd_buffer_tail = (kbd_buffer_tail + 1) % KEYBOARD_BUFFER_SIZE;
     return c;
 }
@@ -112,6 +112,15 @@ void keyboard_handler(registers_t *regs){
     /* 查表翻译 */
     u8 ch = shift_pressed ? kbd_us_shift[scancode] 
                           : kbd_us_normal[scancode];
+
+    /* 方向键不在布局表中，单独处理 */
+    if (ch == 0) {
+        if (scancode == 0x48) { kbd_buffer_put(KEY_UP); return; }
+        if (scancode == 0x50) { kbd_buffer_put(KEY_DOWN); return; }
+        if (scancode == 0x4B) { kbd_buffer_put(KEY_LEFT); return; }
+        if (scancode == 0x4D) { kbd_buffer_put(KEY_RIGHT); return; }
+    }
+
     if(caps_lock_active && ch >= 'a' && ch <= 'z'){
         ch -= 32;
     }else if(caps_lock_active && ch >= 'A' && ch <= 'Z'){
