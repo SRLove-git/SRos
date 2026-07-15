@@ -179,6 +179,124 @@ static int sys_exec(const char *path)
     return ret;
 }
 
+/* ===== IPC 系统调用包装 ===== */
+
+static int sys_sem_init(const char *name, int val)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov %2, %%ecx\n\t"
+        "mov $17, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)name), "r"((u32)val)
+        : "ebx", "ecx"
+    );
+    return ret;
+}
+
+static int sys_sem_wait(int sem_id)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov $18, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)sem_id)
+        : "ebx"
+    );
+    return ret;
+}
+
+static int sys_sem_post(int sem_id)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov $19, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)sem_id)
+        : "ebx"
+    );
+    return ret;
+}
+
+static int sys_sem_destroy(int sem_id)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov $20, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)sem_id)
+        : "ebx"
+    );
+    return ret;
+}
+
+static int sys_msg_get(void)
+{
+    int ret;
+    __asm__ volatile(
+        "mov $21, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        :
+        :
+    );
+    return ret;
+}
+
+static int sys_msg_send(int mq_id, const char *buf, u32 len)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov %2, %%ecx\n\t"
+        "mov %3, %%edx\n\t"
+        "mov $22, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)mq_id), "r"((u32)buf), "r"((u32)len)
+        : "ebx", "ecx", "edx"
+    );
+    return ret;
+}
+
+static int sys_msg_recv(int mq_id, char *buf, u32 *len)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov %2, %%ecx\n\t"
+        "mov %3, %%edx\n\t"
+        "mov $23, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)mq_id), "r"((u32)buf), "r"((u32)len)
+        : "ebx", "ecx", "edx"
+    );
+    return ret;
+}
+
+static int sys_msg_destroy(int mq_id)
+{
+    int ret;
+    __asm__ volatile(
+        "mov %1, %%ebx\n\t"
+        "mov $24, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        : "r"((u32)mq_id)
+        : "ebx"
+    );
+    return ret;
+}
+
 /* ===== 进程控制系统调用包装 ===== */
 
 static int sys_fork(void)
@@ -319,6 +437,8 @@ void cmd_help(int argc, char *argv[]){
     puts("  kmdump              - Dump heap state\n");
     puts("  exec <file>         - Execute a user program\n");
     puts("  fork_test           - Test fork/wait/exit\n");
+    puts("  sem_test            - Test semaphore (create/wait/post/destroy)\n");
+    puts("  msg_test            - Test message queue (send/recv)\n");
 }
 void cmd_echo(int argc, char *argv[]){
     if (argc == 1) {
@@ -485,6 +605,88 @@ static void cmd_fork_test(int argc, char *argv[])
     }
 }
 
+/* ===== 信号量测试命令 ===== */
+
+static void cmd_sem_test(int argc, char *argv[])
+{
+    (void)argc; (void)argv;
+
+    puts("Semaphore test: creating semaphore with initial value 1\n");
+    int sem_id = sys_sem_init("test_sem", 1);
+    if (sem_id < 0) {
+        puts("Failed to create semaphore!\n");
+        return;
+    }
+    puts("Semaphore created, id=");
+    puthex(sem_id);
+    putchar('\n');
+
+    puts("Waiting (P operation)...\n");
+    sys_sem_wait(sem_id);
+    puts("Acquired semaphore (value was 1, now 0)\n");
+
+    int child_pid = sys_fork();
+    if (child_pid == 0) {
+        /* 子进程尝试获取信号量——会被阻塞 */
+        puts("Child: trying to wait on semaphore...\n");
+        sys_sem_wait(sem_id);
+        puts("Child: acquired semaphore!\n");
+        sys_sem_post(sem_id);
+        puts("Child: posted semaphore, exiting.\n");
+        sys_exit(0);
+    } else {
+        /* 父进程持有信号量，延迟后释放 */
+        puts("Parent: holding semaphore for a while...\n");
+        for (volatile int i = 0; i < 10000000; i++);
+        puts("Parent: posting semaphore...\n");
+        sys_sem_post(sem_id);
+        puts("Parent: waiting for child...\n");
+        sys_wait(-1);
+        sys_sem_destroy(sem_id);
+        puts("Semaphore test done.\n");
+    }
+}
+
+/* ===== 消息队列测试命令 ===== */
+
+static void cmd_msg_test(int argc, char *argv[])
+{
+    (void)argc; (void)argv;
+
+    puts("Message queue test: creating queue\n");
+    int mq_id = sys_msg_get();
+    if (mq_id < 0) {
+        puts("Failed to create message queue!\n");
+        return;
+    }
+    puts("Message queue created, id=");
+    puthex(mq_id);
+    putchar('\n');
+
+    int child_pid = sys_fork();
+    if (child_pid == 0) {
+        /* 子进程：接收消息 */
+        char buf[64];
+        u32 len;
+        puts("Child: waiting for message...\n");
+        sys_msg_recv(mq_id, buf, &len);
+        buf[len] = '\0';
+        puts("Child: received '");
+        puts(buf);
+        puts("'\n");
+        sys_exit(0);
+    } else {
+        /* 父进程：发送消息 */
+        const char *msg = "Hello from parent!";
+        puts("Parent: sending message...\n");
+        sys_msg_send(mq_id, msg, strlen(msg));
+        puts("Parent: waiting for child...\n");
+        sys_wait(-1);
+        sys_msg_destroy(mq_id);
+        puts("Message queue test done.\n");
+    }
+}
+
 int parse_command(char *line, char *argv[], int max_args) {
     int argc = 0;
     char *p = line;
@@ -536,6 +738,12 @@ void execute(char *line){
     }
     else if (strcmp(argv[0], "fork_test") == 0) {
         cmd_fork_test(argc, argv);
+    }
+    else if (strcmp(argv[0], "sem_test") == 0) {
+        cmd_sem_test(argc, argv);
+    }
+    else if (strcmp(argv[0], "msg_test") == 0) {
+        cmd_msg_test(argc, argv);
     }
     else {
         puts("Error: Unknown command\n");

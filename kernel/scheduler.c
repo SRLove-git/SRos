@@ -224,6 +224,21 @@ void task_yield(void)
     __asm__ volatile("int $32");
 }
 
+/* ===== 阻塞当前任务 ===== */
+void task_block(void)
+{
+    if (!current_task) return;
+    current_task->state = TASK_BLOCKED;
+}
+
+/* ===== 唤醒阻塞的任务 ===== */
+void task_wake(task_t *task)
+{
+    if (!task) return;
+    task->state = TASK_READY;
+    enqueue_ready(task);
+}
+
 /* ===== 按 PID 查找任务 ===== */
 task_t *task_from_pid(int pid)
 {

@@ -9,6 +9,7 @@
 #include "ramdisk.h"
 #include "sfs.h"
 #include "scheduler.h"
+#include "ipc.h"
 
 static void jump_to_ring3(void)
 {
@@ -80,6 +81,9 @@ void __attribute__((noreturn)) kernel_after_paging(void)
 
     /* 初始化进程调度器 */
     scheduler_init();
+
+    /* 初始化 IPC 子系统（信号量 + 消息队列） */
+    ipc_init();
 
     serial_printf(SERIAL_COM1, "[kernel] starting shell\n");
     pit_init(100);

@@ -52,6 +52,12 @@ int task_wait(int pid);
 /* 主动让出 CPU */
 void task_yield(void);
 
+/* 阻塞当前任务（需调用者确保后续触发调度） */
+void task_block(void);
+
+/* 唤醒一个阻塞的任务（将其加入就绪队列） */
+void task_wake(task_t *task);
+
 /* 按 PID 查找任务 */
 task_t *task_from_pid(int pid);
 

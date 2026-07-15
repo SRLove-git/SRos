@@ -24,6 +24,16 @@
 #define SYS_FORK         15  // 创建子进程
 #define SYS_WAIT         16  // 等待子进程退出
 
+#define SYS_SEM_INIT     17  // 创建信号量
+#define SYS_SEM_WAIT     18  // P 操作
+#define SYS_SEM_POST     19  // V 操作
+#define SYS_SEM_DESTROY  20  // 销毁信号量
+
+#define SYS_MSGGET       21  // 创建消息队列
+#define SYS_MSGSND       22  // 发送消息
+#define SYS_MSGRCV       23  // 接收消息
+#define SYS_MSGCTL       24  // 销毁消息队列
+
 void syscall_handler(registers_t *regs);
 
 #endif /* SYSCALL_H */

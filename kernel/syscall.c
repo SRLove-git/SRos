@@ -10,6 +10,7 @@
 #include "elf_loader.h"
 #include "paging.h"
 #include "scheduler.h"
+#include "ipc.h"
 
 void syscall_handler(registers_t *regs)
 {
@@ -182,6 +183,69 @@ void syscall_handler(registers_t *regs)
         /* ebx = pid (-1 表示等待任意子进程) */
         int ret = task_wait((int)regs->ebx);
         regs->eax = (u32)ret;
+        break;
+    }
+
+    /* ===== 信号量系统调用 ===== */
+
+    case SYS_SEM_INIT: {
+        /* ebx = name (user string), ecx = initial_value */
+        const char *name = (const char *)regs->ebx;
+        int init_val = (int)regs->ecx;
+        regs->eax = (u32)sem_create(name, init_val);
+        break;
+    }
+
+    case SYS_SEM_WAIT: {
+        /* ebx = sem_id */
+        regs->eax = (u32)sem_wait((int)regs->ebx);
+        break;
+    }
+
+    case SYS_SEM_POST: {
+        /* ebx = sem_id */
+        regs->eax = (u32)sem_post((int)regs->ebx);
+        break;
+    }
+
+    case SYS_SEM_DESTROY: {
+        /* ebx = sem_id */
+        regs->eax = (u32)sem_destroy((int)regs->ebx);
+        break;
+    }
+
+    /* ===== 消息队列系统调用 ===== */
+
+    case SYS_MSGGET: {
+        regs->eax = (u32)msg_queue_create();
+        break;
+    }
+
+    case SYS_MSGSND: {
+        /* ebx = mq_id, ecx = buf (user), edx = len */
+        int mq_id = (int)regs->ebx;
+        const char *buf = (const char *)regs->ecx;
+        u32 len = regs->edx;
+        regs->eax = (u32)msg_queue_send(mq_id, buf, len);
+        break;
+    }
+
+    case SYS_MSGRCV: {
+        /* ebx = mq_id, ecx = buf (user), edx = len_ptr (user) */
+        int mq_id = (int)regs->ebx;
+        char *buf = (char *)regs->ecx;
+        u32 *len_ptr = (u32 *)regs->edx;
+        u32 len_buf = 0;
+        int ret = msg_queue_recv(mq_id, buf, &len_buf);
+        if (ret == 0 && len_ptr)
+            *len_ptr = len_buf;
+        regs->eax = (u32)ret;
+        break;
+    }
+
+    case SYS_MSGCTL: {
+        /* ebx = mq_id */
+        regs->eax = (u32)msg_queue_destroy((int)regs->ebx);
         break;
     }
 

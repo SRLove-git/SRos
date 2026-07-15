@@ -54,10 +54,22 @@
 <tr>
 <td width="50%">
 
+**进程间通信 (IPC)** 🔄
+- **计数信号量** — 创建、等待 (P)、释放 (V)、销毁
+- **消息队列** — 创建、发送、接收、销毁
+- **阻塞式 IPC** — 资源不可用时自动阻塞等待
+- **`sem_test` / `msg_test` Shell 测试命令**
+- **关中断保护** — `cli`/`sti` 临界区保护
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
 **用户态** 👤
 - Ring 3 用户模式跳转
 - TSS 内核栈自动切换
-- **`int 0x80` 系统调用**（17 个调用号）
+- **`int 0x80` 系统调用**（25 个调用号）
 - **交互式 Shell**（echo / clear / help / ls / cat / touch / write / exec / fork_test）
 
 </td>
@@ -211,7 +223,8 @@ SROS/
 │   ├── irq.c                #     IRQ + PIT 定时器
 │   ├── paging.c             #     分页 & 物理页帧分配器
 │   ├── scheduler.c          #     进程调度器（RR + fork/exit/wait）
-│   ├── syscall.c            #     系统调用处理（17 个调用号）
+│   ├── syscall.c            #     系统调用处理（25 个调用号）
+│   ├── ipc.c                #     信号量 & 消息队列（IPC）
 │   ├── elf_loader.c         #     ELF 可执行程序加载器
 │   ├── kmalloc.c            #     堆内存分配器
 │   └── string.c             #     字符串工具函数
@@ -225,7 +238,7 @@ SROS/
 │   ├── types.h              #     u8/u16/u32 定义
 │   ├── io.h                 #     inb/outb 端口 I/O
 │   ├── string.h             #     字符串工具函数声明
-│   ├── gdt.h / idt.h / irq.h / paging.h / syscall.h
+│   ├── gdt.h / idt.h / irq.h / paging.h / syscall.h / ipc.h
 │   ├── scheduler.h / elf_loader.h / kmalloc.h
 │   └── keyboard.h / serial.h / vga.h
 │
@@ -249,7 +262,7 @@ SROS/
 
 ## ⚙️ 系统调用
 
-通过 `int 0x80` 中断向用户态提供服务：
+通过 `int 0x80` 中断向用户态提供服务，根据 `ebx`、`ecx`、`edx` 传递参数，返回值通过 `eax` 返回。当前共 25 个系统调用：
 
 | 调用号 | 名称 | 参数 | 说明 |
 |:------:|:----:|:----|:-----|
@@ -270,6 +283,14 @@ SROS/
 | 14 | `SYS_EXIT` | `ebx = exit_code` | 退出当前进程 |
 | 15 | `SYS_FORK` | — | 创建子进程 |
 | 16 | `SYS_WAIT` | `ebx = pid` | 等待子进程退出 |
+| 17 | `SYS_SEM_INIT` | `ebx = name`, `ecx = val` | 创建信号量 |
+| 18 | `SYS_SEM_WAIT` | `ebx = sem_id` | 信号量 P 操作 |
+| 19 | `SYS_SEM_POST` | `ebx = sem_id` | 信号量 V 操作 |
+| 20 | `SYS_SEM_DESTROY` | `ebx = sem_id` | 销毁信号量 |
+| 21 | `SYS_MSGGET` | — | 创建消息队列 |
+| 22 | `SYS_MSGSND` | `ebx = mq_id`, `ecx = buf`, `edx = len` | 发送消息 |
+| 23 | `SYS_MSGRCV` | `ebx = mq_id`, `ecx = buf`, `edx = &len` | 接收消息 |
+| 24 | `SYS_MSGCTL` | `ebx = mq_id` | 销毁消息队列 |
 
 ```c
 // 用户态示例：Shell 交互命令行（支持命令历史、行编辑）
@@ -304,7 +325,7 @@ void shell_main(void)
 }
 ```
 
-支持命令：`echo`、`clear`、`help`、`ls`、`cat`、`touch`、`write`、`kmalloc`、`kfree`、`kmdump`、`exec`、`fork_test`
+支持命令：`echo`、`clear`、`help`、`ls`、`cat`、`touch`、`write`、`kmalloc`、`kfree`、`kmdump`、`exec`、`fork_test`、`sem_test`、`msg_test`
 
 ---
 
@@ -346,6 +367,7 @@ x86_64-elf-gdb build/sros.bin
 - [x] 文件系统 — 磁盘读写与文件管理
 - [x] 进程管理 — 抢占式多任务调度（fork/exit/wait）
 - [x] ELF 程序加载器 — exec 系统调用
+- [x] 进程间通信 (IPC) — 计数信号量 & 消息队列
 - [ ] 更多...
 
 ---
