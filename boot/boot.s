@@ -42,7 +42,10 @@ _start:
     cld
     rep stosb
 
+    /* EBX 指向 Multiboot 信息结构体，作为参数传给 kernel_main */
+    push %ebx
     call kernel_main
+    add $4, %esp
 
     /* 如果 kernel_main 返回，停机 */
     cli

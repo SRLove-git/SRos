@@ -11,6 +11,7 @@
 #include "paging.h"
 #include "scheduler.h"
 #include "ipc.h"
+#include "mouse.h"
 
 void syscall_handler(registers_t *regs)
 {
@@ -38,8 +39,9 @@ void syscall_handler(registers_t *regs)
 
     case SYS_WRITE: {
         char c = (char)regs->ebx;
-        vga_putc(c);
         serial_putc(SERIAL_COM1, c);
+        /* VGA 文本模式下解注释以下行可启用屏幕输出 */
+        /* vga_putc(c); */
         regs->eax = 0;
         break;
     }
@@ -246,6 +248,24 @@ void syscall_handler(registers_t *regs)
     case SYS_MSGCTL: {
         /* ebx = mq_id */
         regs->eax = (u32)msg_queue_destroy((int)regs->ebx);
+        break;
+    }
+
+    case SYS_MOUSE_HAS_DATA: {
+        regs->eax = mouse_has_data() ? 1 : 0;
+        break;
+    }
+
+    case SYS_MOUSE_READ: {
+        /* ebx = user-space pointer to mouse_event_t */
+        mouse_event_t *ev = (mouse_event_t *)regs->ebx;
+        if (mouse_read(ev) == 0) {
+            /* 无事件时置零表示失败 */
+            ev->buttons = 0;
+            ev->dx = 0;
+            ev->dy = 0;
+        }
+        regs->eax = 0;
         break;
     }
 

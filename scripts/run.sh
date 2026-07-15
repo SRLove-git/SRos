@@ -27,12 +27,14 @@ if [ ! -f "$DISK" ]; then
     dd if=/dev/zero of="$DISK" bs=512 count=8192 2>/dev/null
 fi
 
-# 检测操作系统，设置显示后端
+# 检测操作系统，设置显示后端和音频后端
 UNAME_S=$(uname -s)
 if [ "$UNAME_S" = "Darwin" ]; then
     DISPLAY_BACKEND="cocoa"
+    AUDIO_BACKEND="coreaudio"
 else
     DISPLAY_BACKEND="gtk"
+    AUDIO_BACKEND="pa"
 fi
 
 # 基础 QEMU 参数
@@ -40,10 +42,14 @@ QEMU_ARGS=(
     -kernel      "$KERNEL"
     -drive       file="$DISK",format=raw,if=ide
     -m           128M
+    -vga         std
     -serial      stdio
     -no-reboot
     -no-shutdown
     -display     "$DISPLAY_BACKEND"
+    -audiodev    "${AUDIO_BACKEND},id=audio0"
+    -device      "sb16,audiodev=audio0"
+    -nic         "user,model=rtl8139"
 )
 
 # 不同运行模式

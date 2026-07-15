@@ -50,6 +50,7 @@ CFLAGS := \
     -fno-pic \
     -nostdlib \
     -m32 \
+    -mno-sse -mno-mmx -mno-80387 \
     -Wall -Wextra \
     -I include \
 	-I user \

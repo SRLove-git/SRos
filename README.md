@@ -88,7 +88,10 @@
 
 **驱动** 🛠️
 - VGA 文本模式（`0xB8000`）
-- 硬件光标追踪 & 退格键
+- **VBE 帧缓冲** — 1024×768 @ 32bpp 线性帧缓冲
+- **PS/2 鼠标驱动** — 轮询模式 + 环形缓冲区
+- **软件鼠标光标** — 16×16 箭头精灵，save/restore 合成
+- **窗口管理器** — Z 序多窗口叠加、焦点、关闭按钮
 - 串口 COM1 调试输出（`printf` 风格）
 - PS/2 键盘中断驱动 + 缓冲区
 
@@ -101,26 +104,6 @@
 - 串口日志输出
 - 异常处理 & 内核恐慌
 - ELF 可执行程序加载
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-**驱动** 🛠️
-- VGA 文本模式（`0xB8000`）
-- 硬件光标追踪 & 退格键
-- 串口 COM1 调试输出（`printf` 风格）
-- PS/2 键盘中断驱动 + 缓冲区
-
-</td>
-<td width="50%">
-
-**调试** 🔍
-- GDB 远程调试（`:1234`）
-- QEMU Monitor 模式
-- 串口日志输出
-- 异常处理 & 内核恐慌
 
 </td>
 </tr>
@@ -231,6 +214,10 @@ SROS/
 │
 ├── drivers/                 # 🛠️ 设备驱动
 │   ├── vga.c                #     VGA 文本模式 + 光标
+│   ├── framebuffer.c        #     VBE 线性帧缓冲（1024×768 @ 32bpp）
+│   ├── mouse.c              #     PS/2 鼠标驱动（轮询 + 环形缓冲）
+│   ├── cursor.c             #     软件鼠标光标（save/restore 合成）
+│   ├── window.c             #     窗口管理器（Z 序、焦点、合成）
 │   ├── keyboard.c           #     PS/2 键盘 + 缓冲区
 │   └── serial.c             #     COM1 串口 + printf
 │
@@ -238,6 +225,10 @@ SROS/
 │   ├── types.h              #     u8/u16/u32 定义
 │   ├── io.h                 #     inb/outb 端口 I/O
 │   ├── string.h             #     字符串工具函数声明
+│   ├── framebuffer.h        #     VBE 帧缓冲接口
+│   ├── mouse.h              #     PS/2 鼠标事件 & 驱动接口
+│   ├── cursor.h             #     软件光标合成辅助
+│   ├── window.h             #     窗口管理器 API & 结构体
 │   ├── gdt.h / idt.h / irq.h / paging.h / syscall.h / ipc.h
 │   ├── scheduler.h / elf_loader.h / kmalloc.h
 │   └── keyboard.h / serial.h / vga.h
@@ -354,6 +345,10 @@ x86_64-elf-gdb build/sros.bin
 - [x] IRQ — 硬件中断处理（键盘/定时器）
 - [x] PIT — 可编程间隔定时器
 - [x] VGA 文本模式 — 0xB8000 显示 + 硬件光标
+- [x] VBE 帧缓冲 — 1024×768 @ 32bpp 线性帧缓冲
+- [x] PS/2 鼠标驱动 — 轮询模式 + 环形缓冲区
+- [x] 软件鼠标光标 — 16×16 箭头精灵，save/restore 合成
+- [x] 窗口管理器 — Z 序多窗口叠加、焦点、关闭按钮、合成
 - [x] PS/2 键盘驱动 — 中断驱动 + 环形缓冲区
 - [x] 分页 — 4KB 页表 + 物理页帧分配器
 - [x] 用户态 — Ring 3 跳转 + TSS 内核栈切换

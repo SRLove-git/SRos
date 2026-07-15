@@ -3,6 +3,7 @@
 #include "types.h"
 #include "syscall.h"
 #include "keyboard.h"
+#include "mouse.h"
 
 void puts(char *str){
     while(*str != '\0'){
@@ -22,11 +23,10 @@ int getchar(void){
 void putchar(char c){
     __asm__ volatile(
         "mov $1, %%eax\n\t"
-        "mov %0, %%ebx\n\t"
         "int $0x80\n\t"
         :
-        : "r"((u32)c)
-        : "eax", "ebx"
+        : "b"((u32)c)
+        : "eax"
     );
 }
 
@@ -439,6 +439,7 @@ void cmd_help(int argc, char *argv[]){
     puts("  fork_test           - Test fork/wait/exit\n");
     puts("  sem_test            - Test semaphore (create/wait/post/destroy)\n");
     puts("  msg_test            - Test message queue (send/recv)\n");
+    puts("  mouse               - 实时显示鼠标事件\n");
 }
 void cmd_echo(int argc, char *argv[]){
     if (argc == 1) {
@@ -452,6 +453,97 @@ void cmd_echo(int argc, char *argv[]){
         putchar('\n');
     }
 }
+/* ===== 鼠标系统调用包装 ===== */
+
+static int sys_mouse_has_data(void)
+{
+    int ret;
+    __asm__ volatile(
+        "mov $25, %%eax\n\t"
+        "int $0x80\n\t"
+        : "=a"(ret)
+        :
+        :
+    );
+    return ret;
+}
+
+static void sys_mouse_read(mouse_event_t *ev)
+{
+    __asm__ volatile(
+        "mov %0, %%ebx\n\t"
+        "mov $26, %%eax\n\t"
+        "int $0x80\n\t"
+        :
+        : "r"((u32)ev)
+        : "eax", "ebx"
+    );
+}
+
+/* ===== 鼠标实时显示命令 ===== */
+
+static void mouse_format_buttons(u8 btns, char *buf)
+{
+    buf[0] = (btns & MOUSE_LEFT_BTN)   ? 'L' : '-';
+    buf[1] = (btns & MOUSE_MIDDLE_BTN) ? 'M' : '-';
+    buf[2] = (btns & MOUSE_RIGHT_BTN)  ? 'R' : '-';
+    buf[3] = '\0';
+}
+
+void cmd_mouse(int argc, char *argv[])
+{
+    (void)argc; (void)argv;
+    puts("Mouse monitor: move/click to see events. Press any key to exit.\n");
+    puts("  dx   dy   buttons\n");
+
+    char btn_str[4];
+    while (!kbd_buffer_has_data()) {
+        if (!sys_mouse_has_data()) continue;
+
+        mouse_event_t ev;
+        sys_mouse_read(&ev);
+
+        mouse_format_buttons(ev.buttons, btn_str);
+
+        /* 用空格分隔，\r 回到行首覆盖显示 */
+        putchar('\r');
+        putchar(' ');
+
+        /* dx */
+        if (ev.dx >= 0) putchar(' ');
+        putchar(' ');
+        if (ev.dx < -9 || ev.dx > 99) /* 三位数 */ ;
+        else if (ev.dx < -9 || ev.dx > 9) putchar(' ');
+        else putchar(' ');
+        puthex((u8)ev.dx);
+        putchar(' ');
+
+        /* dy */
+        if (ev.dy >= 0) putchar(' ');
+        putchar(' ');
+        if (ev.dy < -9 || ev.dy > 99) ;
+        else if (ev.dy < -9 || ev.dy > 9) putchar(' ');
+        else putchar(' ');
+        puthex((u8)ev.dy);
+        putchar(' ');
+
+        puts(btn_str);
+        putchar(' ');
+
+        /* 读取按键值，便于检查 */
+        if (ev.buttons) {
+            putchar('(');
+            if (ev.buttons & MOUSE_LEFT_BTN)   putchar('L');
+            if (ev.buttons & MOUSE_RIGHT_BTN)  putchar('R');
+            if (ev.buttons & MOUSE_MIDDLE_BTN) putchar('M');
+            putchar(')');
+        }
+    }
+
+    /* 吃掉退出前残留的键盘输入 */
+    putchar('\n');
+}
+
 void cmd_clear(int argc, char *argv[]){
     (void)argc; (void)argv;
     __asm__ volatile(
@@ -744,6 +836,9 @@ void execute(char *line){
     }
     else if (strcmp(argv[0], "msg_test") == 0) {
         cmd_msg_test(argc, argv);
+    }
+    else if (strcmp(argv[0], "mouse") == 0) {
+        cmd_mouse(argc, argv);
     }
     else {
         puts("Error: Unknown command\n");

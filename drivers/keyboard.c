@@ -1,5 +1,6 @@
 #include "keyboard.h"
 #include "io.h"
+#include "mouse.h"
 #define KEYBOARD_BUFFER_SIZE 256
 static const u8 kbd_us_normal[128] = {
     [0x01] = 0x1B,           // Esc
@@ -89,6 +90,12 @@ int kbd_buffer_has_data(void) {
 }
 void keyboard_handler(registers_t *regs){
     (void)regs;
+    /* PS/2 数据端口由键盘和鼠标共享。检查状态寄存器 bit 5：
+     * 若为 1 则输出缓冲数据来自鼠标，转发给鼠标处理。 */
+    if (inb(0x64) & 0x20) {
+        mouse_handler(regs);
+        return;
+    }
     u8 scancode = inb(0x60);
     /* 松开事件 */
     if(scancode & 0x80){

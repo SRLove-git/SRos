@@ -34,6 +34,9 @@
 #define SYS_MSGRCV       23  // 接收消息
 #define SYS_MSGCTL       24  // 销毁消息队列
 
+#define SYS_MOUSE_HAS_DATA 25  // 检查鼠标事件是否可用
+#define SYS_MOUSE_READ     26  // 读取鼠标事件
+
 void syscall_handler(registers_t *regs);
 
 #endif /* SYSCALL_H */
