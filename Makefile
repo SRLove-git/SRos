@@ -75,13 +75,22 @@ $(BUILD_DIR)/%.elf: %.c $(USER_LD_SCRIPT)
 	@$(call make_dir,$(@D))
 	$(CC) $(USER_CFLAGS) -Wl,-m -Wl,elf_i386 -T $(USER_LD_SCRIPT) -o $@ $<
 
-# 创建磁盘镜像（格式化 + 注入用户程序）
-$(DISK_IMG): $(USER_PROGRAMS)
+# 创建磁盘镜像
+ifeq ($(OS),Windows_NT)
+$(DISK_IMG): $(BUILD_DIR)/sros.bin
+	@echo "[*] Creating disk image: $(DISK_IMG)"
+	@powershell -Command "$$f = [System.IO.File]::Create('$(subst /,\,$(DISK_IMG))'); $$f.SetLength(4*1024*1024); $$f.Close()"
+else
+$(DISK_IMG): $(BUILD_DIR)/sros.bin
 	@echo "[*] Creating disk image: $(DISK_IMG)"
 	@dd if=/dev/zero of=$(DISK_IMG) bs=512 count=8192 2>/dev/null
-	@echo "[*] Injecting user programs..."
-	python3 tools/inject_file.py $(DISK_IMG) $(BUILD_DIR)/user/hello.elf hello.elf --format
-	@echo "[*] Disk image ready"
+	@if [ -f tools/inject_file.py ]; then \
+		echo "[*] Injecting user programs..."; \
+		python3 tools/inject_file.py $(DISK_IMG) $(BUILD_DIR)/user/hello.elf hello.elf --format; \
+	else \
+		echo "[*] tools/inject_file.py not found, skipping injection."; \
+	fi
+endif
 
 # Windows 系统命令适配
 ifeq ($(OS),Windows_NT)
@@ -141,8 +150,8 @@ monitor: all $(DISK_IMG)
 
 # 清理
 clean:
-	-rm -rf $(BUILD_DIR)
-	-rm -f serial.log
+	-$(RMDIR) $(BUILD_DIR)
+	-$(RMFILE) serial.log
 
 # 显示每个源文件的大小
 size: $(BUILD_DIR)/sros.bin

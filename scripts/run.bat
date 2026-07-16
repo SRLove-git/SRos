@@ -15,7 +15,7 @@ REM   scripts\run.bat -m          Monitor mode (open QEMU monitor)
 setlocal enabledelayedexpansion
 
 set KERNEL=build\sros.bin
-set DISK=build\disk.img
+set DISK=build\disk_copy.img
 set QEMU=qemu-system-x86_64
 
 REM Check if kernel file exists
@@ -24,10 +24,9 @@ if not exist "%KERNEL%" (
     exit /b 1
 )
 
-REM Create disk image if not exists (4MB)
+REM Check if disk image exists (created by Makefile)
 if not exist "%DISK%" (
-    echo [*] Creating disk image: %DISK% (4MB)
-    powershell -Command "$f = [System.IO.File]::Create('%DISK%'); $f.SetLength(4*1024*1024); $f.Close()"
+    echo [WARN] Disk image not found, run 'make run' will create it automatically.
 )
 
 REM Base QEMU arguments
